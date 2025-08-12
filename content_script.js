@@ -41,10 +41,10 @@ async function createSpeakerStars() {
   for (const row of rows) {
     const speakerCell = row.cells[1];
     const roleCell = row.cells[2];
-    if (!speakerCell || !roleCell) return;
+    if (!speakerCell || !roleCell) continue;
 
     const speakerLink = speakerCell.querySelector("a");
-    if (!speakerLink) return; // Skip rows without speakers
+    if (!speakerLink) continue; // Skip rows without speakers
 
     const speakerId = speakerLink.href.split("/")[4];
     const role = roleCell.textContent;
@@ -64,7 +64,7 @@ async function createSpeakerStars() {
         mediaTitle,
         window.location.pathname,
       ]);
-      const index = speakerdata.findIndex(
+      const index = speakerdata["roles"].findIndex(
         (s) => JSON.stringify(s) === sublistStr,
       );
       if (index != -1) {
@@ -97,13 +97,10 @@ async function showSpeakerTooltip(e, speakerId) {
 
   // let content = "";
   let data = await getSpeaker(speakerId);
+  // console.log("showSpeakerTooltip", speakerId, data);
 
   if (data) {
-    // content += `<table class="synchronkarteiTable"><tbody>`;
-    // for (const line of data) {
-    //   content += `<tr><td>${line[0]}</td><td><a href=${line[2]}>${line[1]}</a></td></tr>`;
-    // }
-    for (const line of data) {
+    for (const line of data["roles"]) {
       const tr = document.createElement("tr");
       const td1 = document.createElement("td");
       td1.textContent = line[0];
@@ -117,43 +114,26 @@ async function showSpeakerTooltip(e, speakerId) {
 
       tbody.appendChild(tr);
     }
-  }
-
-  if (e.shiftKey) {
-    let media = await getMedia();
-    let speakerhtml = await fetch(e.target.href);
-    let parser = new DOMParser();
-    let speakerdoc = parser.parseFromString(
-      await speakerhtml.text(),
-      "text/html",
-    );
-    let roles = speakerdoc.querySelectorAll("div.page ul li");
-    let filteredNodes = Array.from(roles).filter((node) => {
-      return Array.from(node.querySelectorAll("a[href]")).some((link) =>
-        media.some((allowed) => link.href.includes(allowed)),
-      );
-    });
-    let parsedNodes = await Promise.all(
-      filteredNodes.map((node) => parseListElement(node)),
-    );
-
-    if (parsedNodes && parsedNodes.length > 0) {
-      // if (!content) content += `<table class="synchronkarteiTable"><tbody>`;
-      // for (const node of parsedNodes) {
-      //   content += `<tr class="seenRow"><td>${node[0]}</td><td><a href=${node[1]}>${node[2]}</a></td></tr>`;
-      // }
-      for (const node of parsedNodes) {
+    if (e.shiftKey) {
+      for (const line of data["media"]) {
+        const sublistStr = JSON.stringify(line);
+        const index = data["roles"].findIndex(
+          (s) => JSON.stringify(s) === sublistStr,
+        );
+        if (index != -1) {
+          continue;
+        }
         const tr = document.createElement("tr");
         tr.className = "seenRow";
 
         const td1 = document.createElement("td");
-        td1.textContent = node[0];
+        td1.textContent = line[0];
         tr.appendChild(td1);
 
         const td2 = document.createElement("td");
         const a = document.createElement("a");
-        a.href = node[1];
-        a.textContent = node[2];
+        a.href = line[2];
+        a.textContent = line[1];
         td2.appendChild(a);
         tr.appendChild(td2);
 
@@ -163,7 +143,6 @@ async function showSpeakerTooltip(e, speakerId) {
   }
 
   if (!tbody.hasChildNodes()) return;
-  // content += `</tbody></table>`;
   tooltip.mouseIsOver = false;
   tooltip.onmouseover = function () {
     this.mouseIsOver = true;
@@ -172,7 +151,6 @@ async function showSpeakerTooltip(e, speakerId) {
     this.mouseIsOver = false;
     hideTooltip();
   };
-  // tooltip.innerHTML = content;
   table.appendChild(tbody);
   tooltip.appendChild(table);
   let stylesheet = document.createElement("style");
@@ -219,25 +197,6 @@ async function showSpeakerTooltip(e, speakerId) {
   tooltip.style.top = `${top}px`;
 }
 
-async function parseListElement(element) {
-  let rolename = element.querySelector("em");
-  if (rolename) {
-    let links = element.querySelectorAll("a");
-    for (let vlink of links) {
-      if (vlink.href.includes("/film") || vlink.href.includes("/serie")) {
-        return [rolename["textContent"], vlink["href"], vlink["innerText"]];
-      }
-    }
-    console.log("Synchronkartei Highlighter: Could not parse row.", element);
-  } else {
-    return [
-      element.firstChild["textContent"].trim().slice(4).split("\n")[0],
-      element.children[0]["href"],
-      element.children[0]["innerText"],
-    ];
-  }
-}
-
 async function hideTooltip() {
   const tooltip = document.querySelector(".speaker-tooltip");
   await delay(500);
@@ -250,11 +209,15 @@ async function hideTooltipInstant() {
 }
 
 async function callbackToggleSpeakerFavorite(event) {
-  let res = await toggleSpeakerEntry(event.target.dataset.speakerId, [
-    event.target.dataset.role,
-    event.target.dataset.media,
-    event.target.dataset.mediaLink,
-  ]);
+  let res = await toggleSpeakerEntry(
+    event.target.dataset.speakerId,
+    [
+      event.target.dataset.role,
+      event.target.dataset.media,
+      event.target.dataset.mediaLink,
+    ],
+    true,
+  );
   if (res) {
     event.target.innerHTML = "★";
   } else {
@@ -269,8 +232,25 @@ async function callbackToggleMediaFavorite(event) {
   } else {
     event.target.innerHTML = "☆";
   }
+  // also toggle for each speaker
+  const rows = document.querySelectorAll("table.table tbody tr");
+  for (const row of rows) {
+    const speakerCell = row.cells[1];
+    const roleCell = row.cells[2];
+    if (!speakerCell || !roleCell) continue;
+    const speakerLink = speakerCell.querySelector("a");
+    if (!speakerLink) continue; // Skip rows without speakers
+    const speakerId = speakerLink.href.split("/")[4];
+    const role = roleCell.textContent;
+    await toggleSpeakerEntry(
+      speakerId,
+      [role, mediaTitle, window.location.pathname],
+      false,
+    );
+  }
 }
-async function toggleSpeakerEntry(speaker, entry) {
+
+async function toggleSpeakerEntry(speaker, entry, isRole = true) {
   if (!speaker || !entry) {
     console.log(
       "Synchronkartei Highlighter: ToggleSpeakerEntry called invalidly",
@@ -283,29 +263,29 @@ async function toggleSpeakerEntry(speaker, entry) {
   let lists = store.lists || {};
 
   if (!lists[speaker]) {
-    lists[speaker] = [];
+    lists[speaker] = { roles: [], media: [] };
   }
+  const context = isRole ? "roles" : "media";
 
   const sublistStr = JSON.stringify(entry);
-  const index = lists[speaker].findIndex(
+  const index = lists[speaker][context].findIndex(
     (s) => JSON.stringify(s) === sublistStr,
   );
   let res = false;
   if (index === -1) {
-    lists[speaker].push(entry);
+    lists[speaker][context].push(entry);
     res = true;
   } else {
-    lists[speaker].splice(index, 1);
-    if (lists[speaker].length === 0) {
-      delete lists[speaker];
-    }
+    lists[speaker][context].splice(index, 1);
   }
 
+  // console.log("toggleSpeakerEntry", speaker, entry, isRole, res, lists[speaker]);
   await browser.storage.local.set({ lists });
   return res;
 }
 
 async function toggleMediaEntry(entry) {
+  // console.log("toggleMediaEntry", entry);
   if (!entry) {
     console.log(
       "Synchronkartei Highlighter: ToggleMediaEntry called invalidly",
@@ -338,7 +318,8 @@ async function getMedia() {
 
 async function getSpeaker(speaker) {
   let store = await browser.storage.local.get("lists");
-  let lists = store.lists;
+  let lists = store.lists || {};
+  // console.log("getSpeaker",speaker,  lists, lists[speaker]);
   return lists && lists[speaker] ? lists[speaker] : null;
 }
 
