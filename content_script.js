@@ -88,6 +88,7 @@ async function createSpeakerStars() {
 
 async function showSpeakerTooltip(e, speakerId) {
   hideTooltipInstant(); // Remove existing tooltip
+  const speakerName = e.target.innerText;
 
   const tooltip = document.createElement("div");
   tooltip.className = "speaker-tooltip";
@@ -107,7 +108,7 @@ async function showSpeakerTooltip(e, speakerId) {
       tr.appendChild(td1);
       const td2 = document.createElement("td");
       const a = document.createElement("a");
-      a.href = line[2]; // safer to assign href directly
+      a.href = line[2] + "#:~:text=" + speakerName + "-," + line[0]; // safer to assign href directly
       a.textContent = line[1];
       td2.appendChild(a);
       tr.appendChild(td2);
@@ -132,7 +133,7 @@ async function showSpeakerTooltip(e, speakerId) {
 
         const td2 = document.createElement("td");
         const a = document.createElement("a");
-        a.href = line[2];
+        a.href = line[2] + "#:~:text=" + speakerName + "-," + line[0];
         a.textContent = line[1];
         td2.appendChild(a);
         tr.appendChild(td2);
