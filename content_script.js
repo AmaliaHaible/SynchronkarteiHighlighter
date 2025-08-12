@@ -1,4 +1,3 @@
-
 // Core idea:
 // When watching with dub, i always wonder where i know that voice from.
 // This extension allows me to mark roles as recognizable
@@ -6,12 +5,12 @@
 // I dont want to always show everything, thats why i also mark specific roles
 // So i can mark something like Peter Griffin without marking everyone that every spoke something in Family Guy
 //
-// Technical 
+// Technical
 // I keep track of a list of movie/series ids
 // and of specific roles, as [germanSpeaker, roleName, series/movie_id]
 // Displaying the roles is easy, but getting all movies/series is more annoying, so i just check their profile
 // I display everything in a small popup table
-// This is my first extension and for parts of it i got some AI help 
+// This is my first extension and for parts of it i got some AI help
 // but thats just because i never worked on extensions/javascript at all
 
 const isMovie = window.location.pathname.includes("/film/");
@@ -92,13 +91,31 @@ async function showSpeakerTooltip(e, speakerId) {
 
   const tooltip = document.createElement("div");
   tooltip.className = "speaker-tooltip";
-  let content = "";
+  const table = document.createElement("table");
+  table.className = "synchronkarteiTable";
+  const tbody = document.createElement("tbody");
+
+  // let content = "";
   let data = await getSpeaker(speakerId);
 
   if (data) {
-    content += `<table class="synchronkarteiTable"><tbody>`;
+    // content += `<table class="synchronkarteiTable"><tbody>`;
+    // for (const line of data) {
+    //   content += `<tr><td>${line[0]}</td><td><a href=${line[2]}>${line[1]}</a></td></tr>`;
+    // }
     for (const line of data) {
-      content += `<tr><td>${line[0]}</td><td><a href=${line[2]}>${line[1]}</a></td></tr>`;
+      const tr = document.createElement("tr");
+      const td1 = document.createElement("td");
+      td1.textContent = line[0];
+      tr.appendChild(td1);
+      const td2 = document.createElement("td");
+      const a = document.createElement("a");
+      a.href = line[2]; // safer to assign href directly
+      a.textContent = line[1];
+      td2.appendChild(a);
+      tr.appendChild(td2);
+
+      tbody.appendChild(tr);
     }
   }
 
@@ -120,16 +137,33 @@ async function showSpeakerTooltip(e, speakerId) {
       filteredNodes.map((node) => parseListElement(node)),
     );
 
-    if (parsedNodes && parsedNodes.length>0) {
-      if (!content) content += `<table class="synchronkarteiTable"><tbody>`;
+    if (parsedNodes && parsedNodes.length > 0) {
+      // if (!content) content += `<table class="synchronkarteiTable"><tbody>`;
+      // for (const node of parsedNodes) {
+      //   content += `<tr class="seenRow"><td>${node[0]}</td><td><a href=${node[1]}>${node[2]}</a></td></tr>`;
+      // }
       for (const node of parsedNodes) {
-        content += `<tr class="seenRow"><td>${node[0]}</td><td><a href=${node[1]}>${node[2]}</a></td></tr>`;
+        const tr = document.createElement("tr");
+        tr.className = "seenRow";
+
+        const td1 = document.createElement("td");
+        td1.textContent = node[0];
+        tr.appendChild(td1);
+
+        const td2 = document.createElement("td");
+        const a = document.createElement("a");
+        a.href = node[1];
+        a.textContent = node[2];
+        td2.appendChild(a);
+        tr.appendChild(td2);
+
+        tbody.appendChild(tr);
       }
     }
   }
 
-  if (!content) return;
-  content += `</tbody></table>`;
+  if (!tbody.hasChildNodes()) return;
+  // content += `</tbody></table>`;
   tooltip.mouseIsOver = false;
   tooltip.onmouseover = function () {
     this.mouseIsOver = true;
@@ -138,7 +172,9 @@ async function showSpeakerTooltip(e, speakerId) {
     this.mouseIsOver = false;
     hideTooltip();
   };
-  tooltip.innerHTML = content;
+  // tooltip.innerHTML = content;
+  table.appendChild(tbody);
+  tooltip.appendChild(table);
   let stylesheet = document.createElement("style");
   stylesheet.textContent = `
   table.synchronkarteiTable tr:first-child {
@@ -236,7 +272,11 @@ async function callbackToggleMediaFavorite(event) {
 }
 async function toggleSpeakerEntry(speaker, entry) {
   if (!speaker || !entry) {
-    console.log("Synchronkartei Highlighter: ToggleSpeakerEntry called invalidly", speaker, entry);
+    console.log(
+      "Synchronkartei Highlighter: ToggleSpeakerEntry called invalidly",
+      speaker,
+      entry,
+    );
     return;
   }
   let store = await browser.storage.local.get("lists");
@@ -267,7 +307,10 @@ async function toggleSpeakerEntry(speaker, entry) {
 
 async function toggleMediaEntry(entry) {
   if (!entry) {
-    console.log("Synchronkartei Highlighter: ToggleMediaEntry called invalidly", entry);
+    console.log(
+      "Synchronkartei Highlighter: ToggleMediaEntry called invalidly",
+      entry,
+    );
     return;
   }
   let store = await browser.storage.local.get("media");
