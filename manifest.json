@@ -2,9 +2,10 @@
     "manifest_version": 2,
     "name": "Synchronkartei Highlight",
     "description": "Mark movies/series you have seen and roles you recognize on Synchronkartei. By default only shows roles. Hold shift for everything",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "icons": {
-        "64": "icons/icon.png"
+        "32": "icons/icon_32.png",
+        "64": "icons/icon_64.png"
     },
     "content_scripts": [
         {
