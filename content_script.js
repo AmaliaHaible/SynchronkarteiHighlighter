@@ -36,6 +36,8 @@ async function createMediaStar() {
 }
 
 async function createSpeakerStars() {
+  // console.log("createSpeakerStars");
+  let data = await getAllSpeakers();
   const rows = document.querySelectorAll("table.table tbody tr");
 
   for (const row of rows) {
@@ -57,7 +59,7 @@ async function createSpeakerStars() {
     star.dataset.media = mediaTitle;
     star.dataset.mediaLink = window.location.pathname;
 
-    let speakerdata = await getSpeaker(speakerId);
+    let speakerdata = data[speakerId];
     if (speakerdata) {
       let sublistStr = JSON.stringify([
         role,
@@ -84,6 +86,7 @@ async function createSpeakerStars() {
 
     star.addEventListener("click", callbackToggleSpeakerFavorite);
   }
+  // console.log("createSpeakerStars finished");
 }
 
 async function showSpeakerTooltip(e, speakerId) {
@@ -227,6 +230,7 @@ async function callbackToggleSpeakerFavorite(event) {
 }
 
 async function callbackToggleMediaFavorite(event) {
+  // console.log("callbackToggleMediaFavorite");
   let res = await toggleMediaEntry(event.target.dataset.mediaLink);
   if (res) {
     event.target.innerHTML = "★";
@@ -235,6 +239,7 @@ async function callbackToggleMediaFavorite(event) {
   }
   // also toggle for each speaker
   const rows = document.querySelectorAll("table.table tbody tr");
+  let data = [];
   for (const row of rows) {
     const speakerCell = row.cells[1];
     const roleCell = row.cells[2];
@@ -243,12 +248,36 @@ async function callbackToggleMediaFavorite(event) {
     if (!speakerLink) continue; // Skip rows without speakers
     const speakerId = speakerLink.href.split("/")[4];
     const role = roleCell.textContent;
-    await toggleSpeakerEntry(
-      speakerId,
-      [role, mediaTitle, window.location.pathname],
-      false,
-    );
+    // await toggleSpeakerEntry(
+    //   speakerId,
+    //   [role, mediaTitle, window.location.pathname],
+    //   false,
+    // );
+    data.push([speakerId, [role, mediaTitle, window.location.pathname]]);
   }
+  await toggleSpeakerMulti(data);
+  // console.log("callbackToggleMediaFavorite finished");
+}
+// Note: I am bad at js. data is a list with each element [speaker, entry].
+// In python i would do speakers, entries and use zip? but i dont want to loop over indices here
+async function toggleSpeakerMulti(data) {
+  let store = await browser.storage.local.get("lists");
+  let lists = store.lists || {};
+  for (let [speaker, entry] of data) {
+    if (!lists[speaker]) {
+      lists[speaker] = { roles: [], media: [] };
+    }
+    const sublistStr = JSON.stringify(entry);
+    const index = lists[speaker]["media"].findIndex(
+      (s) => JSON.stringify(s) === sublistStr,
+    );
+    if (index === -1) {
+      lists[speaker]["media"].push(entry);
+    } else {
+      lists[speaker]["media"].splice(index, 1);
+    }
+  }
+  await browser.storage.local.set({ lists });
 }
 
 async function toggleSpeakerEntry(speaker, entry, isRole = true) {
@@ -322,6 +351,11 @@ async function getSpeaker(speaker) {
   let lists = store.lists || {};
   // console.log("getSpeaker",speaker,  lists, lists[speaker]);
   return lists && lists[speaker] ? lists[speaker] : null;
+}
+
+async function getAllSpeakers() {
+  let store = await browser.storage.local.get("lists");
+  return store.lists || {};
 }
 
 // main body
